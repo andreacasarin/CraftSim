@@ -508,22 +508,10 @@ function CraftSim.CRAFTQ:QueueFavorites()
 
     local function finalizeProfessionProcess()
         if CraftSim.DB.OPTIONS:Get("CRAFTQUEUE_RESTOCK_FAVORITES_SMART_CONCENTRATION_QUEUING") then
-            local queueZeroConcentration = CraftSim.DB.OPTIONS:Get(
-                "CRAFTQUEUE_RESTOCK_FAVORITES_ZERO_CONCENTRATION_QUEUING")
-            local offsetAmount = tonumber(CraftSim.DB.OPTIONS:Get("CRAFTQUEUE_QUEUE_FAVORITES_OFFSET_QUEUE_AMOUNT"))
-            local zeroConcentrationRecipes = {}
-
             ---@type CraftSim.RecipeData[]
             optimizedRecipes = GUTIL:Filter(optimizedRecipes,
                 ---@param recipeData CraftSim.RecipeData
                 function(recipeData)
-                    if recipeData.concentrationCost <= 0 then
-                        if queueZeroConcentration and recipeData.averageProfitCached > 0 then
-                            tinsert(zeroConcentrationRecipes, recipeData)
-                        end
-                        return false
-                    end
-
                     return recipeData.concentrationCost <= currentConcentration
                 end)
 
@@ -544,16 +532,17 @@ function CraftSim.CRAFTQ:QueueFavorites()
                     end
                     local queueableAmount = math.floor(currentConcentration / concentrationCosts)
                     if queueableAmount > 0 then
+                        local offsetAmount = tonumber(CraftSim.DB.OPTIONS:Get(
+                            "CRAFTQUEUE_QUEUE_FAVORITES_OFFSET_QUEUE_AMOUNT"))
                         CraftSim.CRAFTQ:AddRecipe { recipeData = recipeData, amount = queueableAmount + offsetAmount }
                         currentConcentration = currentConcentration -
                             (concentrationCosts * queueableAmount)
                         break -- only queue first recipe in this mode
                     end
+                else
+                if CraftSim.DB.OPTIONS:Get("CRAFTQUEUE_RESTOCK_FAVORITES_ZERO_CONCENTRATION_QUEUING") and recipeData.averageProfitCached > 0 then
+                    CraftSim.CRAFTQ:AddRecipe { recipeData = recipeData, amount = 1 + offsetAmount }
                 end
-            end
-
-            for _, recipeData in ipairs(zeroConcentrationRecipes) do
-                CraftSim.CRAFTQ:AddRecipe { recipeData = recipeData, amount = 1 + offsetAmount }
             end
 
             CraftSim.CRAFTQ.UI:UpdateDisplay()
